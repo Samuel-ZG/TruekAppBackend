@@ -1,4 +1,4 @@
-namespace TruekAppAPI.Models;
+using System.ComponentModel.DataAnnotations;
 
 public class Setting
 {
