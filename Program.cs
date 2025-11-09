@@ -21,6 +21,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 
+// Registrar servicio BinanceP2PService para inyección de dependencias
+builder.Services.AddSingleton<BinanceP2PService>();
+
 // Añadir controladores con soporte para evitar ciclos JSON 👇
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
