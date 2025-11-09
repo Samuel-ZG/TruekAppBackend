@@ -34,7 +34,7 @@ public class RewardsController(AppDbContext db) : ControllerBase
 
     // Crear recompensa (solo Company o Admin)
     [HttpPost]
-    [Authorize(Roles = $"{nameof(AppRole.Company)},{nameof(AppRole.Admin)}")]
+    [Authorize]
     public async Task<IActionResult> Create(RewardCreateDto dto)
     {
         var role = User.FindFirstValue(ClaimTypes.Role);
@@ -71,7 +71,7 @@ public class RewardsController(AppDbContext db) : ControllerBase
 
     // Obtener recompensas de la empresa del usuario (Company) o todas para Admin
     [HttpGet("company")]
-    [Authorize(Roles = $"{nameof(AppRole.Company)},{nameof(AppRole.Admin)}")]
+    [Authorize]
     public async Task<ActionResult<IEnumerable<RewardDto>>> GetCompanyRewards()
     {
         var role = User.FindFirstValue(ClaimTypes.Role);
@@ -99,7 +99,7 @@ public class RewardsController(AppDbContext db) : ControllerBase
 
     // Canjear reward (usuario) -> crea RewardRedemption y genera movimiento en wallet
     [HttpPost("{id}/redeem")]
-    [Authorize(Roles = nameof(AppRole.User))]
+    [Authorize]
     public async Task<IActionResult> Redeem(int id, RewardRedeemRequestDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -153,7 +153,7 @@ public class RewardsController(AppDbContext db) : ControllerBase
 
     // Empresa/ADMIN marcan redención como canjeada (redeemed) o cancelada
     [HttpPatch("redemptions/{id}/status")]
-    [Authorize(Roles = $"{nameof(AppRole.Company)},{nameof(AppRole.Admin)}")]
+    [Authorize]
     public async Task<IActionResult> UpdateRedemptionStatus(int id, [FromBody] string status)
     {
         var redemption = await db.RewardRedemptions

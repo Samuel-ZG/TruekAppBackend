@@ -25,8 +25,8 @@ namespace TruekAppAPI.Services
         {
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Email),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),  // Id numérico para identificar
+                new Claim(ClaimTypes.Email, user.Email),                   // Email como claim adicional
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             };
 

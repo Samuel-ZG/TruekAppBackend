@@ -50,7 +50,7 @@ public class ListingsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = $"{nameof(AppRole.User)},{nameof(AppRole.Company)}")]
+    [Authorize]
     public async Task<IActionResult> Create(ListingCreateDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

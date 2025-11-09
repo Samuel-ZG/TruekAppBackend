@@ -36,8 +36,7 @@ namespace TruekAppAPI.Controllers
                 Email = dto.Email,
                 PasswordHash = _passwordHasher.HashPassword(dto.Password),
                 Phone = dto.Phone,
-                Role = dto.Role,
-                CompanyId = dto.CompanyId
+                Role = dto.Role
             };
 
             _db.Users.Add(user);
@@ -62,7 +61,12 @@ namespace TruekAppAPI.Controllers
         [Authorize]
         public async Task<ActionResult<UserInfoDto>> Me()
         {
-            var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(idClaim, out var id))
+            {
+                return Unauthorized(); // El claim no es válido o no está presente
+            }
+
             var user = await _db.Users.FindAsync(id);
             if (user == null) return NotFound();
 
@@ -73,6 +77,7 @@ namespace TruekAppAPI.Controllers
                 Role = user.Role,
                 CompanyId = user.CompanyId,
                 TrueCoinBalance = user.TrueCoinBalance
+                // Agrega aquí otros campos si quieres
             };
         }
     }

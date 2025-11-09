@@ -64,6 +64,41 @@ public class TradesController(AppDbContext db) : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("{id}/messages")]
+    public async Task<IActionResult> GetMessages(int id)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        // Buscar el trade junto con sus mensajes y los usuarios remitentes
+        var trade = await db.Trades
+            .Include(t => t.Messages)
+            .ThenInclude(m => m.SenderUser)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (trade == null)
+            return NotFound();
+
+        // Solo los usuarios involucrados pueden ver los mensajes
+        if (trade.OwnerUserId != userId && trade.RequesterUserId != userId)
+            return Forbid();
+
+        // Mapeo a un formato limpio
+        var messages = trade.Messages
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new
+            {
+                m.Id,
+                m.Text,
+                m.CreatedAt,
+                m.SenderUserId,
+                SenderUserName = m.SenderUser.DisplayName ?? "Usuario"
+            })
+            .ToList();
+
+        return Ok(messages);
+    }
+
+
     [HttpPost("{id}/messages")]
     public async Task<IActionResult> SendMessage(int id, [FromBody] string text)
     {

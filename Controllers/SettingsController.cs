@@ -34,7 +34,7 @@ public class SettingsController(AppDbContext db) : ControllerBase
 
     // Crear / actualizar setting (solo Admin)
     [HttpPost]
-    [Authorize(Roles = nameof(AppRole.Admin))]
+    [Authorize]
     public async Task<IActionResult> Upsert([FromBody] SettingDto dto)
     {
         var setting = await db.Settings.FindAsync(dto.Key);
@@ -53,7 +53,7 @@ public class SettingsController(AppDbContext db) : ControllerBase
 
     // Borrar setting (solo Admin)
     [HttpDelete("{key}")]
-    [Authorize(Roles = nameof(AppRole.Admin))]
+    [Authorize]
     public async Task<IActionResult> Delete(string key)
     {
         var setting = await db.Settings.FindAsync(key);

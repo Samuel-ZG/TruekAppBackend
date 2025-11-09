@@ -45,12 +45,11 @@ public class WalletController(AppDbContext db) : ControllerBase
     // Ajuste manual de saldo (solo Admin)
     [HttpPost("adjust")]
     [Authorize(Roles = nameof(AppRole.Admin))]
-    public async Task<IActionResult> AdjustBalance([FromBody] dynamic payload)
+    public async Task<IActionResult> AdjustBalance([FromBody] AdjustBalanceDto payload)
     {
-        // payload: { userId: int, amount: decimal, reason: string }
-        int userId = (int)payload.userId;
-        decimal amount = (decimal)payload.amount;
-        string reason = (string)payload.reason;
+        int userId = payload.UserId;
+        decimal amount = payload.Amount;
+        string reason = payload.Reason;
 
         var user = await db.Users.FindAsync(userId);
         if (user == null) return NotFound();
@@ -71,4 +70,5 @@ public class WalletController(AppDbContext db) : ControllerBase
 
         return NoContent();
     }
+
 }

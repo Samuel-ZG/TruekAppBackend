@@ -29,7 +29,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = nameof(AppRole.Admin))]
+    [Authorize]
     public async Task<IActionResult> Create(CompanyCreateDto dto)
     {
         var company = new Company
@@ -49,7 +49,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = nameof(AppRole.Admin))]
+    [Authorize]
     public async Task<IActionResult> Update(int id, CompanyUpdateDto dto)
     {
         var company = await db.Companies.FindAsync(id);
