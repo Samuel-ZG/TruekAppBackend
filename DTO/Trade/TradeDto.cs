@@ -1,6 +1,6 @@
-namespace TruekAppAPI.DTO.Trade;
-
 using TruekAppAPI.Models;
+
+namespace TruekAppAPI.DTO.Trade;
 
 public class TradeDto
 {
@@ -12,4 +12,8 @@ public class TradeDto
     public TradeStatus Status { get; set; }
     public string? Message { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Nuevos campos para TrueCoins
+    public double? OfferedTrueCoins { get; set; }
+    public double? RequestedTrueCoins { get; set; }
 }
