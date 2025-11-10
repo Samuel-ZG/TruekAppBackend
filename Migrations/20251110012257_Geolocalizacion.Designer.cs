@@ -3,8 +3,8 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using NetTopologySuite.Geometries;
 using TruekAppAPI.Data;
 
 #nullable disable
@@ -12,9 +12,11 @@ using TruekAppAPI.Data;
 namespace TruekAppAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251110012257_Geolocalizacion")]
+    partial class Geolocalizacion
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -114,10 +116,6 @@ namespace TruekAppAPI.Migrations
 
                     b.Property<double?>("Lng")
                         .HasColumnType("float");
-
-                    b.Property<Point>("Location")
-                        .IsRequired()
-                        .HasColumnType("geography");
 
                     b.Property<int>("OwnerUserId")
                         .HasColumnType("int");
