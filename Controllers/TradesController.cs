@@ -28,13 +28,55 @@ public class TradesController(AppDbContext db) : ControllerBase
             TargetListingId = targetListing.Id,
             OfferedListingId = dto.OfferedListingId,
             Message = dto.Message,
-            Status = TradeStatus.Pending
+            Status = TradeStatus.Pending,
+            OfferedTrueCoins = dto.OfferedTrueCoins,
+            RequestedTrueCoins = dto.RequestedTrueCoins
         };
 
         db.Trades.Add(trade);
         await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(CreateTrade), new { trade.Id }, trade);
+    }
+    
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateTrade(int id, TradeUpdateDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var trade = await db.Trades
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (trade == null)
+            return NotFound("Trueque no encontrado.");
+
+        // Solo el usuario que creó el trueque puede editarlo
+        if (trade.RequesterUserId != userId)
+            return Forbid();
+
+        // Solo se permite actualizar mientras esté pendiente
+        if (trade.Status != TradeStatus.Pending)
+            return BadRequest("Solo se pueden editar trueques pendientes.");
+
+        // Validar que la nueva publicación objetivo exista
+        var targetListing = await db.Listings
+            .FirstOrDefaultAsync(l => l.Id == dto.TargetListingId);
+
+        if (targetListing == null)
+            return NotFound("Publicación objetivo no encontrada.");
+
+        // Actualizar campos
+        trade.OfferedListingId = dto.OfferedListingId;
+        trade.TargetListingId = dto.TargetListingId;
+        trade.Message = dto.Message ?? trade.Message;
+
+        // Actualizar campos de TrueCoins
+        trade.OfferedTrueCoins = dto.OfferedTrueCoins;
+        trade.RequestedTrueCoins = dto.RequestedTrueCoins;
+
+        await db.SaveChangesAsync();
+
+        return NoContent();
     }
 
     [HttpPatch("{id}/accept")]
@@ -118,7 +160,7 @@ public class TradesController(AppDbContext db) : ControllerBase
         return CreatedAtAction(nameof(SendMessage), new { message.Id }, message);
     }
 
-    // 🔹 NUEVO ENDPOINT: obtener todos los trueques del usuario autenticado
+    // Obtener todos los trueques del usuario autenticado
     [HttpGet("my")]
     public async Task<ActionResult<IEnumerable<TradeDto>>> GetMyTrades()
     {
@@ -136,7 +178,9 @@ public class TradesController(AppDbContext db) : ControllerBase
                 OfferedListingId = t.OfferedListingId,
                 Status = t.Status,
                 Message = t.Message,
-                CreatedAt = t.CreatedAt
+                CreatedAt = t.CreatedAt,
+                OfferedTrueCoins = t.OfferedTrueCoins,
+                RequestedTrueCoins = t.RequestedTrueCoins
             })
             .ToListAsync();
 

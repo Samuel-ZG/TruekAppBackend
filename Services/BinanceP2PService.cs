@@ -9,7 +9,17 @@ namespace TruekAppAPI.Services
 {
     public class BinanceP2PService
     {
-        private static readonly HttpClient client = new HttpClient();
+        private static readonly HttpClient client;
+
+        static BinanceP2PService()
+        {
+            var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+            };
+            client = new HttpClient(handler);
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; TruekAppBot/1.0)");
+        }
 
         public async Task<decimal?> ObtenerPrecioUSDTaBOBAsync()
         {
@@ -22,7 +32,7 @@ namespace TruekAppAPI.Services
                 payTypes = Array.Empty<string>(),
                 asset = "USDT",
                 fiat = "BOB",
-                tradeType = "SELL"
+                tradeType = "BUY"
             };
 
             var json = JsonSerializer.Serialize(body);
@@ -32,6 +42,9 @@ namespace TruekAppAPI.Services
             response.EnsureSuccessStatusCode();
 
             var responseBody = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine("Respuesta cruda Binance P2P:");
+            Console.WriteLine(responseBody);
 
             var jsonDoc = JsonNode.Parse(responseBody);
 
