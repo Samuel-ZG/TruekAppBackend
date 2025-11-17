@@ -22,6 +22,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 builder.Services.AddScoped<IGeoService, GeoService>();
+builder.Services.AddScoped<IStorageService, AzureStorageService>();
 
 // Registrar servicio BinanceP2PService para inyección de dependencias
 builder.Services.AddSingleton<BinanceP2PService>();

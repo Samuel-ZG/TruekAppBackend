@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http; // <-- ¡Añadir este using!
 using System.ComponentModel.DataAnnotations;
 
 namespace TruekAppAPI.DTO.Listing;
@@ -7,7 +8,9 @@ public class ListingCreateDto
     [Required] public string Title { get; set; } = default!;
     public string? Description { get; set; }
     [Range(1, double.MaxValue)] public decimal TrueCoinValue { get; set; }
-    [Required] public string ImageUrl { get; set; } = default!;
+    
+    [Required] public IFormFile ImageFile { get; set; } = default!; // <-- AÑADIR ESTA LÍNEA
+    
     public string? Address { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }

@@ -5,17 +5,25 @@ using TruekAppAPI.Data;
 using TruekAppAPI.DTO.Listing;
 using TruekAppAPI.Models;
 using System.Security.Claims;
-using TruekAppAPI.Services;     // AÑADIDO: Para IGeoService
-using NetTopologySuite.Geometries; // AÑADIDO: Para Point
+using TruekAppAPI.Services;     
+using NetTopologySuite.Geometries; 
 
 namespace TruekAppAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-// MODIFICADO: Inyectamos el IGeoService junto al AppDbContext
-public class ListingsController(AppDbContext db, IGeoService geoService) : ControllerBase
+// MODIFICADO: Inyectamos el nuevo IStorageService para manejar archivos
+public class ListingsController(
+    AppDbContext db, 
+    IGeoService geoService, 
+    IStorageService storageService // <-- AÑADIDO
+) : ControllerBase
 {
+    // ==================================================================
+    // == MÉTODOS GET (Sin cambios)
+    // ==================================================================
+
     [HttpGet("catalog")]
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ListingDto>>> GetCatalog(
@@ -40,7 +48,6 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
         if (maxValue.HasValue)
             listings = listings.Where(l => l.TrueCoinValue <= maxValue);
 
-        // MODIFICADO: Mapeamos la ubicación (Point) a Lat/Lng
         var result = await listings.Select(l => new ListingDto
         {
             Id = l.Id,
@@ -48,8 +55,6 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
             TrueCoinValue = l.TrueCoinValue,
             ImageUrl = l.ImageUrl,
             IsPublished = l.IsPublished,
-            // AÑADIDO: Mapear desde el objeto Location
-            // ¡Recuerda! Y es Latitud, X es Longitud
             Latitude = l.Location.Y, 
             Longitude = l.Location.X
         }).ToListAsync();
@@ -57,7 +62,6 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
         return Ok(result);
     }
 
-    // --- AÑADIDO: NUEVO ENDPOINT "NEARBY" ---
     [HttpGet("nearby")]
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ListingDto>>> GetNearbyListings(
@@ -65,16 +69,11 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
         [FromQuery] double longitude, 
         [FromQuery] double radiusInKm = 5)
     {
-        // 1. Crea el punto de ubicación del usuario usando el servicio
         var userLocation = geoService.CreatePoint(latitude, longitude);
-
-        // 2. Convierte el radio de Km a Metros (STDistance usa metros)
         var radiusInMeters = radiusInKm * 1000;
 
-        // 3. Consulta optimizada a la base de datos
         var nearbyListings = await db.Listings
             .Where(l => l.IsPublished && l.IsAvailable)
-            // Esta función se traduce a SQL 'STDistance'
             .Where(l => l.Location.IsWithinDistance(userLocation, radiusInMeters)) 
             .Select(l => new ListingDto
             {
@@ -91,26 +90,25 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
         return Ok(nearbyListings);
     }
     
-    // --- AÑADIR ESTE NUEVO ENDPOINT ---
     [HttpGet("{id}")]
     [AllowAnonymous]
     public async Task<ActionResult<ListingDto>> GetListingById(int id)
     {
         var listing = await db.Listings
-            .Include(l => l.OwnerUser) // Incluimos al propietario
+            .Include(l => l.OwnerUser) 
             .Where(l => l.Id == id && l.IsPublished)
             .Select(l => new ListingDto
             {
                 Id = l.Id,
                 Title = l.Title,
-                Description = l.Description, // Mapeamos el nuevo campo
+                Description = l.Description,
                 TrueCoinValue = l.TrueCoinValue,
                 ImageUrl = l.ImageUrl,
                 IsPublished = l.IsPublished,
                 Latitude = l.Location.Y,
                 Longitude = l.Location.X,
-                OwnerUserId = l.OwnerUserId, // Mapeamos el ID del dueño
-                OwnerName = l.OwnerUser.DisplayName // Mapeamos el nombre del dueño
+                OwnerUserId = l.OwnerUserId,
+                OwnerName = l.OwnerUser.DisplayName
             })
             .FirstOrDefaultAsync();
 
@@ -118,55 +116,106 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
 
         return Ok(listing);
     }
-    // --- FIN DEL NUEVO ENDPOINT ---
+
+    // ==================================================================
+    // == MÉTODOS POST/PUT/DELETE (Modificados para archivos)
+    // ==================================================================
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> Create(ListingCreateDto dto)
+    // MODIFICADO: Añadido [FromForm] para aceptar 'multipart/form-data' (archivos)
+    public async Task<IActionResult> Create([FromForm] ListingCreateDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        // --- AÑADIDO: Lógica de carga de archivos ---
+        if (dto.ImageFile == null || dto.ImageFile.Length == 0)
+        {
+            return BadRequest("No se ha proporcionado un archivo de imagen.");
+        }
+
+        string imageUrl;
+        try
+        {
+            // Usamos el servicio para subir el archivo. "listings" es el nombre del contenedor.
+            imageUrl = await storageService.UploadFileAsync(dto.ImageFile, "listings");
+        }
+        catch (Exception ex)
+        {
+            // Manejo de error si la subida a Azure falla
+            return StatusCode(500, $"Error interno al subir la imagen: {ex.Message}");
+        }
+        // --- FIN DE LA NUEVA LÓGICA ---
+
         var listing = new Listing
         {
             OwnerUserId = userId,
             Title = dto.Title,
             Description = dto.Description,
             TrueCoinValue = dto.TrueCoinValue,
-            ImageUrl = dto.ImageUrl,
             
-            // MODIFICADO: Usamos el GeoService para crear el 'Point'
+            // MODIFICADO: Usamos la URL devuelta por el servicio de almacenamiento
+            ImageUrl = imageUrl, 
+            
             Location = geoService.CreatePoint(dto.Latitude, dto.Longitude),
-            
-            // ELIMINADO: Ya no usamos Lat/Lng separados
-            // Lat = dto.Lat, 
-            // Lng = dto.Lng,
-            
             IsPublished = true
-            // IsAvailable = true (Valor por defecto)
         };
 
         db.Listings.Add(listing);
         await db.SaveChangesAsync();
         
-        // (Mejora opcional): Devolver un DTO en lugar del modelo completo
-        // Por ahora lo dejamos como lo tenías.
-        return CreatedAtAction(nameof(Create), new { listing.Id }, listing);
+        // CONVENCIÓN: Devolver un DTO en lugar de la entidad de DB
+        var responseDto = new ListingDto 
+        {
+            Id = listing.Id,
+            Title = listing.Title,
+            Description = listing.Description,
+            TrueCoinValue = listing.TrueCoinValue,
+            ImageUrl = listing.ImageUrl,
+            IsPublished = listing.IsPublished,
+            Latitude = listing.Location.Y,
+            Longitude = listing.Location.X,
+            OwnerUserId = listing.OwnerUserId
+        };
+
+        return CreatedAtAction(nameof(GetListingById), new { id = listing.Id }, responseDto);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, ListingUpdateDto dto)
+    // MODIFICADO: Añadido [FromForm]
+    public async Task<IActionResult> Update(int id, [FromForm] ListingUpdateDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var listing = await db.Listings.FindAsync(id);
         if (listing == null) return NotFound();
         if (listing.OwnerUserId != userId) return Forbid();
 
+        // --- AÑADIDO: Lógica condicional de carga de archivos ---
+        if (dto.ImageFile != null && dto.ImageFile.Length > 0)
+        {
+            try
+            {
+                // Práctica profesional: Eliminar la imagen antigua antes de subir la nueva
+                if (!string.IsNullOrEmpty(listing.ImageUrl))
+                {
+                    await storageService.DeleteFileAsync(listing.ImageUrl);
+                }
+
+                // Subir la nueva imagen
+                listing.ImageUrl = await storageService.UploadFileAsync(dto.ImageFile, "listings");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno al actualizar la imagen: {ex.Message}");
+            }
+        }
+        // --- FIN DE LA NUEVA LÓGICA ---
+
         listing.Title = dto.Title ?? listing.Title;
         listing.Description = dto.Description ?? listing.Description;
         listing.TrueCoinValue = dto.TrueCoinValue ?? listing.TrueCoinValue;
-        listing.ImageUrl = dto.ImageUrl ?? listing.ImageUrl;
         listing.IsPublished = dto.IsPublished ?? listing.IsPublished;
 
-        // AÑADIDO: Permitir actualización de ubicación
         if (dto.Latitude.HasValue && dto.Longitude.HasValue)
         {
             listing.Location = geoService.CreatePoint(dto.Latitude.Value, dto.Longitude.Value);
@@ -183,6 +232,22 @@ public class ListingsController(AppDbContext db, IGeoService geoService) : Contr
         var listing = await db.Listings.FindAsync(id);
         if (listing == null) return NotFound();
         if (listing.OwnerUserId != userId) return Forbid();
+
+        // --- AÑADIDO: Borrar el archivo asociado de Blob Storage ---
+        if (!string.IsNullOrEmpty(listing.ImageUrl))
+        {
+            try
+            {
+                await storageService.DeleteFileAsync(listing.ImageUrl);
+            }
+            catch (Exception ex)
+            {
+                // No bloquear la eliminación de la DB si falla el borrado del archivo,
+                // pero se debe registrar (logging).
+                Console.WriteLine($"Error al eliminar archivo de storage: {ex.Message}");
+            }
+        }
+        // --- FIN DE LA NUEVA LÓGICA ---
 
         db.Listings.Remove(listing);
         await db.SaveChangesAsync();
